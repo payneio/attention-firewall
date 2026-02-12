@@ -19,6 +19,7 @@ windows = [
     "winrt-Windows.UI.Notifications.Management>=3.0.0",
     "winrt-Windows.Foundation>=3.0.0",
     "winrt-Windows.Foundation.Collections>=3.0.0",
+    "winrt-Windows.ApplicationModel>=3.0.0",
 ]
 
 [project.scripts]
