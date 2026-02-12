@@ -129,51 +129,52 @@ class WindowsListener:
         Returns:
             NotificationPayload or None if conversion fails.
         """
+        app_name = "Unknown"
+        summary = ""
+        body = ""
+
+        # Try to get app name (may fail if ApplicationModel not available)
         try:
-            # Get app info
-            app_name = "Unknown"
             if notification.app_info and notification.app_info.display_info:
                 app_name = notification.app_info.display_info.display_name or "Unknown"
+        except Exception as e:
+            logger.debug(f"Could not get app info: {e}")
 
-            # Get notification content
-            summary = ""
-            body = ""
+        # Try to get notification content from XML
+        try:
+            toast_notification = notification.notification
+            if toast_notification:
+                # Get the XML content which is more reliable
+                xml_content = toast_notification.content
+                if xml_content:
+                    # Extract text from XML
+                    text_nodes = xml_content.get_elements_by_tag_name("text")
+                    texts = []
+                    for i in range(text_nodes.length):
+                        node = text_nodes.item(i)
+                        if node and node.inner_text:
+                            texts.append(node.inner_text)
 
-            try:
-                # Try to get text elements from the notification visual
-                visual = notification.notification.visual
-                if visual:
-                    # Get the toast binding
-                    binding = visual.get_binding(
-                        "Windows.UI.Notifications.ToastTemplateType.ToastText02"
-                    )
-                    if not binding:
-                        # Try generic binding
-                        bindings = visual.bindings
-                        if bindings and len(bindings) > 0:
-                            binding = bindings[0]
+                    if len(texts) > 0:
+                        summary = texts[0]
+                    if len(texts) > 1:
+                        body = texts[1]
+        except Exception as e:
+            logger.debug(f"Could not extract notification text: {e}")
 
-                    if binding:
-                        text_elements = list(binding.get_text_elements())
-                        if len(text_elements) > 0:
-                            summary = text_elements[0].text or ""
-                        if len(text_elements) > 1:
-                            body = text_elements[1].text or ""
-            except Exception as e:
-                logger.debug(f"Could not extract notification text: {e}")
-
+        # Create payload even with minimal info
+        try:
             return NotificationPayload(
                 app_name=app_name,
                 summary=summary,
                 body=body,
-                icon="",  # WinRT doesn't easily expose icon path
+                icon="",
                 replaces_id=0,
-                actions=[],  # Would need more complex parsing
+                actions=[],
                 hints={"windows_id": notification.id},
                 timeout=-1,
                 received_at=datetime.now(timezone.utc).isoformat(),
             )
-
         except Exception as e:
-            logger.error(f"Failed to convert notification: {e}")
+            logger.error(f"Failed to create notification payload: {e}")
             return None
