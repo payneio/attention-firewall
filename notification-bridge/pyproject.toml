@@ -16,6 +16,8 @@ linux = ["dbus-fast>=4.0.0"]
 windows = [
     "winrt-runtime>=3.0.0",
     "winrt-Windows.UI.Notifications>=3.0.0",
+    "winrt-Windows.UI.Notifications.Management>=3.0.0",
+    "winrt-Windows.Foundation>=3.0.0",
 ]
 
 [project.scripts]
