@@ -1,0 +1,26 @@
+[Unit]
+Description=Notification Bridge - D-Bus to HTTP notification forwarder
+Documentation=https://github.com/your-org/notification-bridge
+After=dbus.service
+
+[Service]
+Type=simple
+# Adjust the path to your installation
+ExecStart=%h/.local/bin/uvicorn notification_bridge.main:app --host 127.0.0.1 --port 9001
+# Or if using uv in a specific project directory:
+# ExecStart=/path/to/notification-bridge/.venv/bin/uvicorn notification_bridge.main:app --host 127.0.0.1 --port 9001
+
+Restart=on-failure
+RestartSec=5
+
+# Environment configuration (uncomment and modify as needed)
+# Environment=CENTRAL_CONTEXT_URL=http://localhost:9000
+# Environment=BUCKET_NAME=notifications
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=notification-bridge
+
+[Install]
+WantedBy=default.target
