@@ -16,7 +16,7 @@ def main() -> None:
     import uvicorn
 
     settings = Settings()
-    uvicorn.run(app, host="0.0.0.0", port=settings.port)
+    uvicorn.run(app, host=settings.host, port=settings.port)
 
 
 if __name__ == "__main__":

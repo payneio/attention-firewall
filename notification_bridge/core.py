@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     central_context_url: str = "http://localhost:9000"
     bucket_name: str = "notifications"
+    host: str = "0.0.0.0"
     port: int = 9001
 
     model_config = {"env_file": ".env", "extra": "ignore"}

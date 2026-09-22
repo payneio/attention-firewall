@@ -120,6 +120,20 @@ class WindowsListener:
 
             await asyncio.sleep(0.5)
 
+    @staticmethod
+    def _extract_texts(notification) -> list[str]:
+        """Return the text lines of a WinRT UserNotification, preferring ToastGeneric."""
+        visual = notification.notification.visual if notification.notification else None
+        if visual is None:
+            return []
+        bindings = list(visual.bindings)
+        bindings.sort(key=lambda b: b.template != "ToastGeneric")
+        for binding in bindings:
+            texts = [t.text for t in binding.get_text_elements() if t.text]
+            if texts:
+                return texts
+        return []
+
     def _convert_notification(self, notification) -> NotificationPayload | None:
         """Convert a WinRT notification to our payload format.
 
@@ -140,27 +154,17 @@ class WindowsListener:
         except Exception as e:
             logger.debug(f"Could not get app info: {e}")
 
-        # Try to get notification content from XML
+        # Extract text from the toast's visual binding. UserNotification exposes
+        # a Notification (not a ToastNotification), so there is no XML content;
+        # the text lives in visual.bindings -> get_text_elements().
         try:
-            toast_notification = notification.notification
-            if toast_notification:
-                # Get the XML content which is more reliable
-                xml_content = toast_notification.content
-                if xml_content:
-                    # Extract text from XML
-                    text_nodes = xml_content.get_elements_by_tag_name("text")
-                    texts = []
-                    for i in range(text_nodes.length):
-                        node = text_nodes.item(i)
-                        if node and node.inner_text:
-                            texts.append(node.inner_text)
-
-                    if len(texts) > 0:
-                        summary = texts[0]
-                    if len(texts) > 1:
-                        body = texts[1]
+            texts = self._extract_texts(notification)
+            if len(texts) > 0:
+                summary = texts[0]
+            if len(texts) > 1:
+                body = "\n".join(texts[1:])
         except Exception as e:
-            logger.debug(f"Could not extract notification text: {e}")
+            logger.warning(f"Could not extract notification text: {e}")
 
         # Create payload even with minimal info
         try:

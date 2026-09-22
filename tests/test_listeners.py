@@ -345,3 +345,43 @@ class TestWindowsListener:
         assert callback.called
         payload = callback.call_args[0][0]
         assert isinstance(payload, NotificationPayload)
+
+
+class TestWindowsTextExtraction:
+    """Text extraction from WinRT UserNotification, using stand-in objects."""
+
+    @staticmethod
+    def _user_notification(bindings):
+        from types import SimpleNamespace as NS
+
+        def binding(template, texts):
+            elements = [NS(text=t) for t in texts]
+            return NS(template=template, get_text_elements=lambda: elements)
+
+        visual = NS(bindings=[binding(tpl, texts) for tpl, texts in bindings])
+        display = NS(display_name="Microsoft Teams")
+        return NS(
+            id=42,
+            app_info=NS(display_info=display),
+            notification=NS(visual=visual),
+        )
+
+    def test_summary_and_body_from_toast_generic(self):
+        from notification_bridge.listeners.windows import WindowsListener
+
+        n = self._user_notification(
+            [("Other", ["ignored"]), ("ToastGeneric", ["Alice", "Hi", "there"])]
+        )
+        payload = WindowsListener()._convert_notification(n)
+        assert payload.app_name == "Microsoft Teams"
+        assert payload.summary == "Alice"
+        assert payload.body == "Hi\nthere"
+
+    def test_no_visual_yields_empty_text(self):
+        from types import SimpleNamespace as NS
+
+        from notification_bridge.listeners.windows import WindowsListener
+
+        n = NS(id=1, app_info=None, notification=None)
+        payload = WindowsListener()._convert_notification(n)
+        assert payload.summary == "" and payload.body == ""
