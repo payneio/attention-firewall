@@ -321,7 +321,8 @@ class TestWindowsListener:
         async def get_notifications(*args):
             nonlocal call_count
             call_count += 1
-            if call_count == 1:
+            # First call is the startup snapshot, which is skipped
+            if call_count == 2:
                 return [mock_notification]
             return []
 
@@ -385,3 +386,57 @@ class TestWindowsTextExtraction:
         n = NS(id=1, app_info=None, notification=None)
         payload = WindowsListener()._convert_notification(n)
         assert payload.summary == "" and payload.body == ""
+
+
+class TestWindowsStartupSnapshot:
+    """Notifications already present at startup are not re-forwarded."""
+
+    @pytest.fixture
+    def fake_winrt(self, monkeypatch):
+        import types
+        from types import SimpleNamespace as NS
+
+        state = NS(calls=0, batches=[])
+
+        async def request_access_async():
+            return "ALLOWED"
+
+        async def get_notifications_async(kind):
+            batch = state.batches[min(state.calls, len(state.batches) - 1)]
+            state.calls += 1
+            return batch
+
+        listener = NS(
+            request_access_async=request_access_async,
+            get_notifications_async=get_notifications_async,
+        )
+        notifications = types.ModuleType("winrt.windows.ui.notifications")
+        notifications.NotificationKinds = NS(TOAST=1)
+        management = types.ModuleType("winrt.windows.ui.notifications.management")
+        management.UserNotificationListener = NS(current=listener)
+        management.UserNotificationListenerAccessStatus = NS(ALLOWED="ALLOWED")
+        for name in ("winrt", "winrt.windows", "winrt.windows.ui"):
+            monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+        monkeypatch.setitem(sys.modules, notifications.__name__, notifications)
+        monkeypatch.setitem(sys.modules, management.__name__, management)
+        return state
+
+    @pytest.mark.asyncio
+    async def test_existing_notifications_skipped(self, fake_winrt):
+        import asyncio
+        from types import SimpleNamespace as NS
+
+        from notification_bridge.listeners.windows import WindowsListener
+
+        old = NS(id=1, app_info=None, notification=None)
+        new = NS(id=2, app_info=None, notification=None)
+        fake_winrt.batches = [[old], [old, new]]
+
+        callback = AsyncMock()
+        listener = WindowsListener()
+        await listener.start(callback)
+        await asyncio.sleep(0.1)
+        await listener.stop()
+
+        forwarded = [c.args[0].hints["windows_id"] for c in callback.call_args_list]
+        assert forwarded == [2]

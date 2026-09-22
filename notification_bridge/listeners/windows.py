@@ -38,6 +38,7 @@ class WindowsListener:
         """
         # Import WinRT modules
         try:
+            from winrt.windows.ui.notifications import NotificationKinds
             from winrt.windows.ui.notifications.management import (
                 UserNotificationListener as UNL,
             )
@@ -66,8 +67,20 @@ class WindowsListener:
         self._running = True
         logger.info("Successfully obtained notification listener access")
 
+        # Skip notifications already in Action Center so restarts don't re-forward them
+        try:
+            existing = await listener.get_notifications_async(NotificationKinds.TOAST)
+            self._seen_ids.update(n.id for n in existing)
+            logger.info(
+                f"Skipping {len(self._seen_ids)} notifications present at startup"
+            )
+        except Exception as e:
+            logger.warning(f"Could not read existing notifications: {e}")
+
         # Start polling for notifications
-        self._poll_task = asyncio.create_task(self._poll_notifications(listener))
+        self._poll_task = asyncio.create_task(
+            self._poll_notifications(listener, NotificationKinds)
+        )
 
     async def stop(self) -> None:
         """Stop listening for notifications."""
@@ -83,18 +96,13 @@ class WindowsListener:
 
         logger.info("Stopped Windows notification listener")
 
-    async def _poll_notifications(self, listener) -> None:
+    async def _poll_notifications(self, listener, NotificationKinds) -> None:
         """Poll for new notifications.
 
         Args:
             listener: The UserNotificationListener instance.
+            NotificationKinds: The WinRT NotificationKinds enum.
         """
-        try:
-            from winrt.windows.ui.notifications import NotificationKinds
-        except ImportError:
-            logger.error("Failed to import NotificationKinds")
-            return
-
         while self._running:
             try:
                 # Get current notifications
