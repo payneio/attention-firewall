@@ -43,6 +43,7 @@ Environment variables:
 | `BUCKET_NAME` | `notifications` | Bucket for stored notifications |
 | `HOST` | `0.0.0.0` | Server bind address (use `127.0.0.1` to keep it local-only) |
 | `PORT` | `9001` | Server port |
+| `LOG_FILE` | *(console)* | Append logs to this file instead of the console (for background runs) |
 
 ### API Endpoints
 
@@ -87,7 +88,14 @@ systemctl --user enable --now notification-bridge
 
 ### Windows
 
-Create a scheduled task to run at login, or use a service wrapper.
+`examples/windows-logon-task.ps1` registers a Task Scheduler task that runs the
+bridge in the background at logon (via `pythonw`, so no console window). It writes
+settings to `%LOCALAPPDATA%\notification-bridge\.env` and logs to `bridge.log` there.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File examples\windows-logon-task.ps1 -BucketName notifications-worklaptop
+powershell -ExecutionPolicy Bypass -File examples\windows-logon-task.ps1 -Uninstall
+```
 
 ## Platform-Specific Notes
 

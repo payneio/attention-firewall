@@ -259,3 +259,36 @@ class TestNotificationForwarder:
         parsed = json.loads(content)
         assert parsed["app_name"] == "TestApp"
         assert parsed["summary"] == "Test Summary"
+
+
+class TestOutputRedirect:
+    """main() can run without a console (pythonw) by redirecting output."""
+
+    def test_log_file_receives_output(self, tmp_path, monkeypatch):
+        import sys
+
+        from notification_bridge.main import _redirect_output
+
+        monkeypatch.setattr(sys, "stdout", sys.stdout)
+        monkeypatch.setattr(sys, "stderr", sys.stderr)
+        log = tmp_path / "bridge.log"
+        _redirect_output(str(log))
+        print("hello")
+        sys.stdout.close()
+        assert log.read_text() == "hello\n"
+
+    def test_missing_console_goes_to_devnull(self, monkeypatch):
+        import sys
+
+        from notification_bridge.main import _redirect_output
+
+        monkeypatch.setattr(sys, "stdout", None)
+        monkeypatch.setattr(sys, "stderr", None)
+        _redirect_output(None)
+        assert sys.stdout is not None and not sys.stdout.isatty()
+        sys.stdout.close()
+
+    def test_app_still_importable_from_main(self):
+        from notification_bridge.main import app
+
+        assert app.title == "Notification Bridge"

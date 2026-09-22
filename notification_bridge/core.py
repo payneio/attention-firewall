@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     bucket_name: str = "notifications"
     host: str = "0.0.0.0"
     port: int = 9001
+    log_file: str | None = None
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
