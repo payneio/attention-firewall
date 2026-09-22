@@ -6,10 +6,14 @@
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File windows-logon-task.ps1 -BucketName notifications-worklaptop
+#   powershell -ExecutionPolicy Bypass -File windows-logon-task.ps1 -WebhookUrl https://hub/events -WebhookToken <token>
 param(
     [string]$CentralContextUrl = "https://central-context.civil.payne.io",
     [string]$BucketName = "notifications-$($env:COMPUTERNAME.ToLower())",
     [int]$Port = 9001,
+    # Post notifications to this URL (e.g. work-service /events) instead of Central Context
+    [string]$WebhookUrl = "",
+    [string]$WebhookToken = "",
     [string]$TaskName = "notification-bridge",
     [switch]$Uninstall
 )
@@ -36,13 +40,17 @@ New-Item -ItemType Directory -Force $configDir | Out-Null
 $logFile = Join-Path $configDir "bridge.log"
 $envFile = Join-Path $configDir ".env"
 # ASCII, not Set-Content -Encoding utf8: Windows PowerShell adds a BOM that breaks the first key
-@"
+$envText = @"
 CENTRAL_CONTEXT_URL=$CentralContextUrl
 BUCKET_NAME=$BucketName
 HOST=127.0.0.1
 PORT=$Port
 LOG_FILE=$logFile
-"@ | Set-Content -Encoding ascii $envFile
+"@
+if ($WebhookUrl) {
+    $envText += "`nWEBHOOK_URL=$WebhookUrl`nWEBHOOK_TOKEN=$WebhookToken"
+}
+$envText | Set-Content -Encoding ascii $envFile
 
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 $action = New-ScheduledTaskAction -Execute $pythonw `

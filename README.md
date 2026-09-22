@@ -43,6 +43,8 @@ Environment variables:
 | `BUCKET_NAME` | `notifications` | Bucket for stored notifications |
 | `HOST` | `0.0.0.0` | Server bind address (use `127.0.0.1` to keep it local-only) |
 | `PORT` | `9001` | Server port |
+| `WEBHOOK_URL` | *(unset)* | If set, POST each notification as JSON here instead of Central Context |
+| `WEBHOOK_TOKEN` | *(unset)* | Bearer token sent with webhook posts |
 | `LOG_FILE` | *(console)* | Append logs to this file instead of the console (for background runs) |
 
 ### API Endpoints

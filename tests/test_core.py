@@ -292,3 +292,38 @@ class TestOutputRedirect:
         from notification_bridge.main import app
 
         assert app.title == "Notification Bridge"
+
+
+class TestWebhookForwarding:
+    """With WEBHOOK_URL set, notifications go there instead of Central Context."""
+
+    @pytest.mark.asyncio
+    async def test_posts_payload_with_token(self):
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(202, json={"id": 1})
+
+        settings = Settings(
+            webhook_url="https://hub.example/events", webhook_token="secret"
+        )
+        payload = NotificationPayload(
+            app_name="Microsoft Teams",
+            summary="Alice",
+            body="Hi",
+            icon="",
+            replaces_id=0,
+            actions=[],
+            hints={},
+            timeout=-1,
+            received_at="2026-09-22T00:00:00+00:00",
+        )
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await NotificationForwarder(client, settings).forward(payload)
+
+        [request] = seen
+        assert str(request.url) == "https://hub.example/events"
+        assert request.headers["authorization"] == "Bearer secret"
+        assert request.headers["x-agent"]
+        assert json.loads(request.content)["summary"] == "Alice"
