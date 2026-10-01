@@ -440,3 +440,32 @@ class TestWindowsStartupSnapshot:
 
         forwarded = [c.args[0].hints["windows_id"] for c in callback.call_args_list]
         assert forwarded == [2]
+
+
+class TestLinuxGnomeForwardedCopy:
+    """GNOME re-sends each Notify internally; only the original is forwarded."""
+
+    @pytest.mark.asyncio
+    async def test_gnome_shell_forwarded_copy_is_skipped(self):
+        from dbus_fast import Variant
+
+        from notification_bridge.listeners.linux import LinuxListener
+
+        def notify(hints: dict) -> MagicMock:
+            msg = MagicMock()
+            msg.body = ["Chrome", 0, "", "Alice", "Hi", [], hints, -1]
+            return msg
+
+        listener = LinuxListener()
+        listener._callback = AsyncMock()
+        original = {"urgency": Variant("y", 1)}
+        forwarded = {
+            **original,
+            "x-shell-sender": Variant("s", ":1.1467"),
+            "x-shell-sender-pid": Variant("u", 4242),
+        }
+        await listener._process_notification(notify(original))
+        await listener._process_notification(notify(forwarded))
+
+        listener._callback.assert_called_once()
+        assert listener._callback.call_args[0][0].summary == "Alice"

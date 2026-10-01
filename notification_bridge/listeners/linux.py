@@ -96,6 +96,13 @@ class LinuxListener:
                 :8
             ]
 
+            # GNOME Shell (46+) owns org.freedesktop.Notifications through a small
+            # gjs proxy that re-sends every Notify to gnome-shell itself, adding
+            # x-shell-sender hints. Eavesdropping sees both calls, so the
+            # forwarded copy is skipped or every notification arrives twice.
+            if "x-shell-sender" in hints:
+                return
+
             # Convert hints dict (may contain variant types)
             serializable_hints = {}
             for k, v in hints.items():
