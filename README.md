@@ -91,7 +91,7 @@ systemctl --user enable --now notification-bridge
 ### Windows
 
 `examples/windows-logon-task.ps1` registers a Task Scheduler task that runs the
-bridge in the background at logon (via `pythonw`, so no console window). It writes
+bridge in the background at logon, inside a headless console host (`conhost --headless`) so no window appears. It writes
 settings to `%LOCALAPPDATA%\notification-bridge\.env` and logs to `bridge.log` there.
 
 ```powershell

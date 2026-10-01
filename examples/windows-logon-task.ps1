@@ -1,5 +1,5 @@
 # Registers a Task Scheduler task that runs notification-bridge in the background
-# at logon (no console window). Re-run to update settings; -Uninstall to remove.
+# at logon (no visible window). Re-run to update settings; -Uninstall to remove.
 #
 # Prerequisite:
 #   uv tool install "notification-bridge[windows] @ https://github.com/payneio/attention-firewall/archive/refs/heads/main.zip"
@@ -27,11 +27,14 @@ if ($Uninstall) {
     return
 }
 
-# pythonw (not the notification-bridge.exe shim) so no console window appears
+# The venv's pythonw.exe is a uv launcher that starts the *console* python.exe,
+# which Windows Terminal then shows as a blank window that never closes. So run
+# python.exe inside a headless console host instead: a console, but no window.
 $toolDir = (& uv tool dir).Trim()
-$pythonw = Join-Path $toolDir "notification-bridge\Scripts\pythonw.exe"
-if (-not (Test-Path $pythonw)) {
-    throw "Not found: $pythonw. Install notification-bridge with 'uv tool install' first."
+$python = Join-Path $toolDir "notification-bridge\Scripts\python.exe"
+$conhost = Join-Path $env:WINDIR "System32\conhost.exe"
+if (-not (Test-Path $python)) {
+    throw "Not found: $python. Install notification-bridge with 'uv tool install' first."
 }
 
 # Settings are read from .env in the task's working directory
@@ -53,8 +56,8 @@ if ($WebhookUrl) {
 $envText | Set-Content -Encoding ascii $envFile
 
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-$action = New-ScheduledTaskAction -Execute $pythonw `
-    -Argument "-m notification_bridge.main" -WorkingDirectory $configDir
+$action = New-ScheduledTaskAction -Execute $conhost `
+    -Argument "--headless `"$python`" -m notification_bridge.main" -WorkingDirectory $configDir
 # Interactive logon: the notification listener needs the user's desktop session
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
